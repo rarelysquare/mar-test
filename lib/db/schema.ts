@@ -1,10 +1,9 @@
-// Database schema definitions (documentation / migration source of truth)
 export const SCHEMA = `
 CREATE TABLE IF NOT EXISTS players (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
   slug TEXT UNIQUE NOT NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT (to_char(now(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"')),
   total_points INTEGER NOT NULL DEFAULT 0,
   current_streak INTEGER NOT NULL DEFAULT 0,
   longest_streak INTEGER NOT NULL DEFAULT 0,
@@ -12,18 +11,18 @@ CREATE TABLE IF NOT EXISTS players (
 );
 
 CREATE TABLE IF NOT EXISTS daily_games (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   game_date TEXT NOT NULL UNIQUE,
   photo_id TEXT NOT NULL,
   photo_timestamp TEXT,
   photo_lat REAL,
   photo_lng REAL,
   questions_json TEXT NOT NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (to_char(now(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))
 );
 
 CREATE TABLE IF NOT EXISTS player_sessions (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   player_id INTEGER NOT NULL REFERENCES players(id),
   game_date TEXT NOT NULL,
   answers_json TEXT NOT NULL DEFAULT '[]',
@@ -34,19 +33,19 @@ CREATE TABLE IF NOT EXISTS player_sessions (
 );
 
 CREATE TABLE IF NOT EXISTS badges (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   player_id INTEGER NOT NULL REFERENCES players(id),
   badge_key TEXT NOT NULL,
-  earned_at TEXT NOT NULL DEFAULT (datetime('now')),
+  earned_at TEXT NOT NULL DEFAULT (to_char(now(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"')),
   UNIQUE(player_id, badge_key)
 );
 
 CREATE TABLE IF NOT EXISTS weekly_videos (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   week_start TEXT NOT NULL UNIQUE,
   file_path TEXT NOT NULL,
   point_threshold INTEGER NOT NULL DEFAULT 50,
-  uploaded_at TEXT NOT NULL DEFAULT (datetime('now'))
+  uploaded_at TEXT NOT NULL DEFAULT (to_char(now(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))
 );
 
 CREATE TABLE IF NOT EXISTS config (
@@ -55,7 +54,7 @@ CREATE TABLE IF NOT EXISTS config (
 );
 
 CREATE TABLE IF NOT EXISTS trivia_questions (
-  id INTEGER PRIMARY KEY,
+  id SERIAL PRIMARY KEY,
   category TEXT NOT NULL CHECK(category IN ('milestone_trivia', 'raising_adelina')),
   question TEXT NOT NULL,
   answer TEXT NOT NULL,
@@ -64,26 +63,29 @@ CREATE TABLE IF NOT EXISTS trivia_questions (
   follow_up_context TEXT,
   is_adelina_specific INTEGER NOT NULL DEFAULT 0,
   active INTEGER NOT NULL DEFAULT 1,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  tags TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (to_char(now(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"')),
+  updated_at TEXT NOT NULL DEFAULT (to_char(now(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))
 );
 
 CREATE TABLE IF NOT EXISTS media_items (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   filename TEXT NOT NULL UNIQUE,
   original_name TEXT NOT NULL,
   type TEXT NOT NULL CHECK(type IN ('photo', 'video')),
   mime_type TEXT NOT NULL,
   size INTEGER NOT NULL,
-  uploaded_at TEXT NOT NULL DEFAULT (datetime('now')),
+  tags TEXT NOT NULL DEFAULT '',
+  description TEXT NOT NULL DEFAULT '',
+  uploaded_at TEXT NOT NULL DEFAULT (to_char(now(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"')),
   used_on TEXT
 );
 
 CREATE TABLE IF NOT EXISTS player_media_history (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   player_id INTEGER NOT NULL REFERENCES players(id),
   media_id INTEGER NOT NULL REFERENCES media_items(id),
-  shown_at TEXT NOT NULL DEFAULT (datetime('now')),
+  shown_at TEXT NOT NULL DEFAULT (to_char(now(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"')),
   UNIQUE(player_id, media_id)
 );
 `;

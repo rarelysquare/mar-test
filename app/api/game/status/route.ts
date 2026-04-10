@@ -7,19 +7,19 @@ export async function GET(req: Request) {
   const slug = searchParams.get("slug");
   if (!slug) return NextResponse.json({ error: "slug required" }, { status: 400 });
 
-  const db = getDb();
-  const player = db.prepare("SELECT * FROM players WHERE slug = ?").get(slug) as
-    | Record<string, unknown>
-    | undefined;
-  if (!player) return NextResponse.json({ error: "Player not found" }, { status: 404 });
+  const db = await getDb();
+  const { rows: playerRows } = await db.query("SELECT * FROM players WHERE slug = $1", [slug]);
+  if (!playerRows.length) return NextResponse.json({ error: "Player not found" }, { status: 404 });
+  const player = playerRows[0];
 
   const today = todayDate();
-  const session = db
-    .prepare("SELECT * FROM player_sessions WHERE player_id = ? AND game_date = ?")
-    .get(player.id, today) as { answers_json: string; score: number } | undefined;
+  const { rows: sessionRows } = await db.query(
+    "SELECT answers_json, score FROM player_sessions WHERE player_id = $1 AND game_date = $2",
+    [player.id, today]
+  );
 
-  const answers: { category: string; correct: boolean }[] = session
-    ? JSON.parse(session.answers_json)
+  const answers: { correct: boolean }[] = sessionRows.length
+    ? JSON.parse(sessionRows[0].answers_json)
     : [];
 
   return NextResponse.json({

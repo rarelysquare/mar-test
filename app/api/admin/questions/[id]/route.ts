@@ -19,29 +19,30 @@ export async function PUT(
   const body = await req.json();
   const { category, question, answer, answer_type, options, follow_up_context, active, tags } = body;
 
-  const db = getDb();
-  db.prepare(`
-    UPDATE trivia_questions SET
-      category = COALESCE(?, category),
-      question = COALESCE(?, question),
-      answer = COALESCE(?, answer),
-      answer_type = COALESCE(?, answer_type),
-      options_json = COALESCE(?, options_json),
-      follow_up_context = ?,
-      active = COALESCE(?, active),
-      tags = COALESCE(?, tags),
-      updated_at = datetime('now')
-    WHERE id = ?
-  `).run(
-    category ?? null,
-    question ?? null,
-    answer ?? null,
-    answer_type ?? null,
-    options !== undefined ? JSON.stringify(options) : null,
-    follow_up_context ?? null,
-    active !== undefined ? (active ? 1 : 0) : null,
-    tags !== undefined ? tags : null,
-    id
+  const db = await getDb();
+  await db.query(
+    `UPDATE trivia_questions SET
+      category = COALESCE($1, category),
+      question = COALESCE($2, question),
+      answer = COALESCE($3, answer),
+      answer_type = COALESCE($4, answer_type),
+      options_json = COALESCE($5, options_json),
+      follow_up_context = $6,
+      active = COALESCE($7, active),
+      tags = COALESCE($8, tags),
+      updated_at = to_char(now(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+     WHERE id = $9`,
+    [
+      category ?? null,
+      question ?? null,
+      answer ?? null,
+      answer_type ?? null,
+      options !== undefined ? JSON.stringify(options) : null,
+      follow_up_context ?? null,
+      active !== undefined ? (active ? 1 : 0) : null,
+      tags !== undefined ? tags : null,
+      id,
+    ]
   );
 
   return NextResponse.json({ ok: true });
@@ -57,7 +58,7 @@ export async function DELETE(
   }
 
   const { id } = await params;
-  const db = getDb();
-  db.prepare("DELETE FROM trivia_questions WHERE id = ?").run(id);
+  const db = await getDb();
+  await db.query("DELETE FROM trivia_questions WHERE id = $1", [id]);
   return NextResponse.json({ ok: true });
 }

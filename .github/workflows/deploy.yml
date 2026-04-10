@@ -1,0 +1,61 @@
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches: [main]
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: us-central1
+  SERVICE: adelina-game
+  REGISTRY: us-central1-docker.pkg.dev
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
+
+      - name: Build and push Docker image
+        run: |
+          IMAGE=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.SERVICE }}/${{ env.SERVICE }}:${{ github.sha }}
+          docker build -t $IMAGE .
+          docker push $IMAGE
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.SERVICE }} \
+            --image ${{ env.IMAGE }} \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --service-account adelina-runner@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
+            --add-cloudsql-instances ${{ env.PROJECT_ID }}:${{ env.REGION }}:adelina-db \
+            --set-env-vars "DATABASE_URL=${{ secrets.DATABASE_URL }}" \
+            --set-env-vars "AUTH_SECRET=${{ secrets.AUTH_SECRET }}" \
+            --set-env-vars "AUTH_URL=https://$(gcloud run services describe ${{ env.SERVICE }} --region ${{ env.REGION }} --format='value(status.url)' 2>/dev/null | sed 's|https://||' || echo 'placeholder')" \
+            --set-env-vars "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}" \
+            --set-env-vars "GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}" \
+            --set-env-vars "ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL }}" \
+            --set-env-vars "GCS_BUCKET=${{ secrets.GCS_BUCKET }}" \
+            --set-env-vars "MEDIA_BASE_URL=${{ secrets.MEDIA_BASE_URL }}" \
+            --set-env-vars "BABY_NAME=Adelina" \
+            --set-env-vars "BABY_BIRTHDATE=2025-10-18" \
+            --allow-unauthenticated \
+            --memory 512Mi \
+            --min-instances 0 \
+            --max-instances 3

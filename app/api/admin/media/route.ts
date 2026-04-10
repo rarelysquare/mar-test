@@ -1,12 +1,13 @@
 import { auth } from "@/auth";
 import { getDb } from "@/lib/db/client";
 import { NextResponse } from "next/server";
-import { unlink } from "fs/promises";
-import path from "path";
+import { Storage } from "@google-cloud/storage";
 
 function isAdmin(email?: string | null) {
   return email === process.env.ADMIN_EMAIL;
 }
+
+const storage = new Storage();
 
 export async function GET() {
   const session = await auth();
@@ -14,10 +15,14 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const db = getDb();
-  const items = db.prepare(
-    "SELECT * FROM media_items ORDER BY uploaded_at DESC"
-  ).all();
+  const db = await getDb();
+  const { rows } = await db.query("SELECT * FROM media_items ORDER BY uploaded_at DESC");
+
+  const mediaBase = process.env.MEDIA_BASE_URL ?? "";
+  const items = rows.map((item) => ({
+    ...item,
+    url: `${mediaBase}/${item.type === "photo" ? "photos" : "videos"}/${item.filename}`,
+  }));
 
   return NextResponse.json({ items });
 }
@@ -31,9 +36,11 @@ export async function PATCH(req: Request) {
   const { id, tags, description } = await req.json();
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
-  const db = getDb();
-  db.prepare("UPDATE media_items SET tags = ?, description = ? WHERE id = ?")
-    .run(tags ?? "", description ?? "", id);
+  const db = await getDb();
+  await db.query(
+    "UPDATE media_items SET tags = $1, description = $2 WHERE id = $3",
+    [tags ?? "", description ?? "", id]
+  );
   return NextResponse.json({ ok: true });
 }
 
@@ -48,22 +55,20 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: "filename required" }, { status: 400 });
   }
 
-  const db = getDb();
-  const item = db.prepare("SELECT * FROM media_items WHERE filename = ?").get(filename) as
-    | { type: string; filename: string }
-    | undefined;
+  const db = await getDb();
+  const { rows } = await db.query(
+    "SELECT type FROM media_items WHERE filename = $1",
+    [filename]
+  );
+  if (!rows.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  if (!item) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-  const subdir = item.type === "photo" ? "photos" : "videos";
-  const filePath = path.join(process.cwd(), "public", "media", subdir, filename);
-
+  const subdir = rows[0].type === "photo" ? "photos" : "videos";
   try {
-    await unlink(filePath);
+    await storage.bucket(process.env.GCS_BUCKET!).file(`${subdir}/${filename}`).delete();
   } catch {
-    // file might already be gone, that's ok
+    // file might already be gone
   }
 
-  db.prepare("DELETE FROM media_items WHERE filename = ?").run(filename);
+  await db.query("DELETE FROM media_items WHERE filename = $1", [filename]);
   return NextResponse.json({ ok: true });
 }

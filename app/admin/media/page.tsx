@@ -15,6 +15,7 @@ interface MediaItem {
   used_on: string | null;
   tags: string;
   description: string;
+  url: string;
 }
 
 interface UploadFile {
@@ -246,8 +247,7 @@ export default function MediaPage() {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
             {filtered.map((item) => {
-              const subdir = item.type === "photo" ? "photos" : "videos";
-              const url = `/media/${subdir}/${item.filename}`;
+              const url = item.url;
               return (
                 <div
                   key={item.id}

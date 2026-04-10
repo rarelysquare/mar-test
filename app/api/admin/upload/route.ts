@@ -1,8 +1,7 @@
 import { auth } from "@/auth";
 import { getDb } from "@/lib/db/client";
 import { NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
-import { existsSync } from "fs";
+import { Storage } from "@google-cloud/storage";
 import path from "path";
 import { randomUUID } from "crypto";
 
@@ -23,6 +22,8 @@ const VIDEO_TYPES = new Set([
   "video/m4v", "video/3gpp",
 ]);
 
+const storage = new Storage();
+
 export async function POST(req: Request) {
   const session = await auth();
   if (!session || !isAdmin(session.user?.email)) {
@@ -36,7 +37,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No files provided" }, { status: 400 });
   }
 
-  const db = getDb();
+  const bucket = storage.bucket(process.env.GCS_BUCKET!);
+  const db = await getDb();
   const uploaded: { filename: string; original: string; type: string; url: string }[] = [];
   const errors: string[] = [];
 
@@ -44,8 +46,6 @@ export async function POST(req: Request) {
     const ext = path.extname(file.name).toLowerCase();
     const isPhoto = PHOTO_TYPES.has(file.type) || PHOTO_EXTS.has(ext);
     const isVideo = VIDEO_TYPES.has(file.type) || VIDEO_EXTS.has(ext);
-
-    console.log(`[upload] file="${file.name}" ext="${ext}" mime="${file.type}" isPhoto=${isPhoto} isVideo=${isVideo}`);
 
     if (!isPhoto && !isVideo) {
       errors.push(`${file.name}: unsupported type (${file.type}, ext: ${ext})`);
@@ -56,19 +56,22 @@ export async function POST(req: Request) {
     const fileExt = ext || (isPhoto ? ".jpg" : ".mp4");
     const filename = `${randomUUID()}${fileExt}`;
     const subdir = isPhoto ? "photos" : "videos";
-    const dir = path.join(process.cwd(), "public", "media", subdir);
-
-    if (!existsSync(dir)) await mkdir(dir, { recursive: true });
+    const gcsPath = `${subdir}/${filename}`;
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    await writeFile(path.join(dir, filename), buffer);
+    await bucket.file(gcsPath).save(buffer, {
+      contentType: file.type || "application/octet-stream",
+      resumable: false,
+    });
 
-    db.prepare(`
-      INSERT INTO media_items (filename, original_name, type, mime_type, size)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(filename, file.name, type, file.type, file.size);
+    await db.query(
+      `INSERT INTO media_items (filename, original_name, type, mime_type, size)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [filename, file.name, type, file.type, file.size]
+    );
 
-    uploaded.push({ filename, original: file.name, type, url: `/media/${subdir}/${filename}` });
+    const url = `${process.env.MEDIA_BASE_URL}/${gcsPath}`;
+    uploaded.push({ filename, original: file.name, type, url });
   }
 
   return NextResponse.json({ uploaded, errors });

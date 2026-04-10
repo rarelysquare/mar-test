@@ -9,14 +9,13 @@ export async function POST(req: Request) {
   }
 
   const trimmed = name.trim();
-  const db = getDb();
+  const db = await getDb();
 
-  // Case-insensitive uniqueness check
-  const existing = db
-    .prepare("SELECT slug FROM players WHERE LOWER(name) = LOWER(?)")
-    .get(trimmed) as { slug: string } | undefined;
-
-  if (existing) {
+  const existing = await db.query(
+    "SELECT slug FROM players WHERE LOWER(name) = LOWER($1)",
+    [trimmed]
+  );
+  if (existing.rows.length) {
     return NextResponse.json(
       { error: "That name is already taken — try adding your last initial!" },
       { status: 409 }
@@ -24,14 +23,12 @@ export async function POST(req: Request) {
   }
 
   let slug = nameToSlug(trimmed);
-
-  // Ensure slug is unique
   let counter = 1;
-  while (db.prepare("SELECT id FROM players WHERE slug = ?").get(slug)) {
+  while ((await db.query("SELECT id FROM players WHERE slug = $1", [slug])).rows.length) {
     slug = `${nameToSlug(trimmed)}-${counter++}`;
   }
 
-  db.prepare("INSERT INTO players (name, slug) VALUES (?, ?)").run(trimmed, slug);
+  await db.query("INSERT INTO players (name, slug) VALUES ($1, $2)", [trimmed, slug]);
   return NextResponse.json({ slug, name: trimmed });
 }
 
@@ -40,9 +37,9 @@ export async function GET(req: Request) {
   const slug = searchParams.get("slug");
   if (!slug) return NextResponse.json({ error: "slug required" }, { status: 400 });
 
-  const db = getDb();
-  const player = db.prepare("SELECT * FROM players WHERE slug = ?").get(slug);
-  if (!player) return NextResponse.json({ error: "Player not found" }, { status: 404 });
+  const db = await getDb();
+  const { rows } = await db.query("SELECT * FROM players WHERE slug = $1", [slug]);
+  if (!rows.length) return NextResponse.json({ error: "Player not found" }, { status: 404 });
 
-  return NextResponse.json({ player });
+  return NextResponse.json({ player: rows[0] });
 }

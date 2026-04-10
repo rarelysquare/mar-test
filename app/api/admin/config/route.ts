@@ -12,8 +12,8 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const db = getDb();
-  const rows = db.prepare("SELECT key, value FROM config").all() as { key: string; value: string }[];
+  const db = await getDb();
+  const { rows } = await db.query("SELECT key, value FROM config");
   const config = Object.fromEntries(rows.map((r) => [r.key, r.value]));
   return NextResponse.json({ config });
 }
@@ -25,15 +25,14 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json();
-  const db = getDb();
-
-  const upsert = db.prepare(
-    "INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
-  );
+  const db = await getDb();
 
   for (const [key, value] of Object.entries(body)) {
     if (typeof key === "string" && typeof value === "string") {
-      upsert.run(key, value);
+      await db.query(
+        "INSERT INTO config (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+        [key, value]
+      );
     }
   }
 

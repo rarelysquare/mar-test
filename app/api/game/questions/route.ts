@@ -16,54 +16,53 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Invalid category" }, { status: 400 });
   }
 
-  const db = getDb();
-  const player = db.prepare("SELECT * FROM players WHERE slug = ?").get(slug) as
-    | { id: number }
-    | undefined;
-  if (!player) return NextResponse.json({ error: "Player not found" }, { status: 404 });
+  const db = await getDb();
+  const { rows: playerRows } = await db.query(
+    "SELECT id FROM players WHERE slug = $1", [slug]
+  );
+  if (!playerRows.length) return NextResponse.json({ error: "Player not found" }, { status: 404 });
+  const playerId = playerRows[0].id;
 
   const today = todayDate();
-  const session = db
-    .prepare("SELECT * FROM player_sessions WHERE player_id = ? AND game_date = ?")
-    .get(player.id, today) as { answers_json: string } | undefined;
+  const { rows: sessionRows } = await db.query(
+    "SELECT answers_json FROM player_sessions WHERE player_id = $1 AND game_date = $2",
+    [playerId, today]
+  );
 
-  const answers: { question_id: number }[] = session
-    ? JSON.parse(session.answers_json)
+  const answers: { question_id: number }[] = sessionRows.length
+    ? JSON.parse(sessionRows[0].answers_json)
     : [];
 
   const remaining = MAX_DAILY_QUESTIONS - answers.length;
-  if (remaining <= 0) {
-    return NextResponse.json({ questions: [], remaining: 0 });
-  }
+  if (remaining <= 0) return NextResponse.json({ questions: [], remaining: 0 });
 
   const answeredIds = answers.map((a) => a.question_id);
-  const exclusion =
+
+  // Build parameterized query dynamically
+  const params: (string | number)[] = [];
+  let p = 1;
+
+  const categoryFilter = category === "daily" ? "" : `AND category = $${p++}`;
+  if (category !== "daily") params.push(category);
+
+  const exclusionFilter =
     answeredIds.length > 0
-      ? `AND id NOT IN (${answeredIds.map(() => "?").join(",")})`
+      ? `AND id NOT IN (${answeredIds.map(() => `$${p++}`).join(",")})`
       : "";
+  params.push(...answeredIds);
 
-  // "daily" mode: pull from all categories mixed
-  const categoryFilter = category === "daily" ? "" : "AND category = ?";
-  const categoryArgs = category === "daily" ? [] : [category];
+  params.push(remaining);
+  const limitClause = `LIMIT $${p}`;
 
-  const questions = db
-    .prepare(
-      `SELECT id, question, answer_type, options_json, answer, follow_up_context
-       FROM trivia_questions
-       WHERE active = 1 ${categoryFilter} ${exclusion}
-       ORDER BY RANDOM()
-       LIMIT ?`
-    )
-    .all(...categoryArgs, ...answeredIds, remaining) as {
-    id: number;
-    question: string;
-    answer_type: string;
-    options_json: string;
-    answer: string;
-    follow_up_context: string | null;
-  }[];
+  const { rows: questions } = await db.query(
+    `SELECT id, question, answer_type, options_json, answer, follow_up_context
+     FROM trivia_questions
+     WHERE active = 1 ${categoryFilter} ${exclusionFilter}
+     ORDER BY RANDOM()
+     ${limitClause}`,
+    params
+  );
 
-  // Parse options_json for each question
   const parsed = questions.map((q) => ({
     ...q,
     options: JSON.parse(q.options_json),

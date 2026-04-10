@@ -6,10 +6,10 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const questionIds = searchParams.get("question_ids");
 
-  const db = getDb();
-  const videos = db
-    .prepare("SELECT id, filename, tags FROM media_items WHERE type = 'video'")
-    .all() as { id: number; filename: string; tags: string }[];
+  const db = await getDb();
+  const { rows: videos } = await db.query(
+    "SELECT id, filename, tags FROM media_items WHERE type = 'video'"
+  );
 
   if (!videos.length) return NextResponse.json({ url: null });
 
@@ -17,18 +17,22 @@ export async function GET(req: Request) {
   if (questionIds) {
     const ids = questionIds.split(",").map(Number).filter(Boolean);
     if (ids.length) {
-      const placeholders = ids.map(() => "?").join(",");
-      const questions = db
-        .prepare(`SELECT tags FROM trivia_questions WHERE id IN (${placeholders})`)
-        .all(...ids) as { tags: string }[];
+      const placeholders = ids.map((_, i) => `$${i + 1}`).join(",");
+      const { rows: questions } = await db.query(
+        `SELECT tags FROM trivia_questions WHERE id IN (${placeholders})`,
+        ids
+      );
       questionTagSet = new Set(
-        questions.flatMap((q) =>
-          q.tags.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean)
+        questions.flatMap((q: { tags: string }) =>
+          q.tags.split(",").map((t: string) => t.trim().toLowerCase()).filter(Boolean)
         )
       );
     }
   }
 
   const chosen = pickVideoByTags(videos, questionTagSet);
-  return NextResponse.json({ url: chosen ? `/media/videos/${chosen.filename}` : null });
+  const mediaBase = process.env.MEDIA_BASE_URL ?? "";
+  return NextResponse.json({
+    url: chosen ? `${mediaBase}/videos/${chosen.filename}` : null,
+  });
 }
