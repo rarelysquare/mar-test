@@ -47,7 +47,7 @@ jobs:
             --add-cloudsql-instances ${{ env.PROJECT_ID }}:${{ env.REGION }}:adelina-db \
             --set-env-vars "DATABASE_URL=${{ secrets.DATABASE_URL }}" \
             --set-env-vars "AUTH_SECRET=${{ secrets.AUTH_SECRET }}" \
-            --set-env-vars "AUTH_URL=https://$(gcloud run services describe ${{ env.SERVICE }} --region ${{ env.REGION }} --format='value(status.url)' 2>/dev/null | sed 's|https://||' || echo 'placeholder')" \
+            --set-env-vars "AUTH_URL=${{ secrets.AUTH_URL }}" \
             --set-env-vars "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}" \
             --set-env-vars "GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}" \
             --set-env-vars "ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL }}" \
