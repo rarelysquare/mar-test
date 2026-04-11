@@ -255,7 +255,7 @@ export default function CategoryPage() {
           </button>
           <div className="flex-1">
             <p className="text-xs text-brand-400 font-medium uppercase tracking-wide">
-              {category === "daily" ? "Daily Questions" : CATEGORY_NAMES[category]}
+              {category === "daily" ? "Today's Question" : CATEGORY_NAMES[category]}
             </p>
           </div>
         </div>
