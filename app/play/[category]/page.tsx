@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { CATEGORY_SLUGS, CATEGORY_NAMES, MAX_DAILY_QUESTIONS } from "@/lib/game";
+import { CATEGORY_SLUGS, CATEGORY_NAMES } from "@/lib/game";
 import { StarIcon, ClapIcon, MuscleIcon, PartyIcon, MoonIcon } from "@/app/components/SoftIcons";
 import { DevReset } from "@/app/components/DevReset";
 
@@ -51,7 +51,7 @@ export default function CategoryPage() {
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [mediaType, setMediaType] = useState<"video" | "photo" | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [questionsAnsweredBefore, setQuestionsAnsweredBefore] = useState(0);
+
 
   const slug = typeof window !== "undefined" ? localStorage.getItem("playerSlug") : null;
 
@@ -67,8 +67,6 @@ export default function CategoryPage() {
       return;
     }
 
-    const answered = MAX_DAILY_QUESTIONS - data.remaining;
-    setQuestionsAnsweredBefore(answered);
     setQuestions(data.questions);
     setPhase("question");
   }, [slug, category, categorySlug, router]);
@@ -117,7 +115,6 @@ export default function CategoryPage() {
   }
 
   const q = questions[currentIndex];
-  const totalAnswered = questionsAnsweredBefore + sessionResults.length;
   const correctCount = sessionResults.filter((r) => r.correct).length;
 
   // ── Loading ──────────────────────────────────────────────────────────────
@@ -159,22 +156,6 @@ export default function CategoryPage() {
             <p className="text-brand-400 mt-1">
               {correctCount} of {sessionResults.length} correct this round
             </p>
-          </div>
-
-          {/* Score bar */}
-          <div className="bg-cream-50 rounded-2xl p-4 shadow-sm space-y-2 border border-brand-100">
-            <div className="flex justify-between text-sm text-brand-600">
-              <span>Today&apos;s progress</span>
-              <span className="font-medium">
-                {totalAnswered}/{MAX_DAILY_QUESTIONS}
-              </span>
-            </div>
-            <div className="h-2 bg-brand-100 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-brand-400 rounded-full transition-all"
-                style={{ width: `${(totalAnswered / MAX_DAILY_QUESTIONS) * 100}%` }}
-              />
-            </div>
           </div>
 
           {mediaUrl && (
@@ -279,24 +260,7 @@ export default function CategoryPage() {
             <p className="text-xs text-brand-400 font-medium uppercase tracking-wide">
               {category === "daily" ? "Daily Questions" : CATEGORY_NAMES[category]}
             </p>
-            <div className="flex gap-1 mt-1">
-              {questions.map((_, i) => (
-                <div
-                  key={i}
-                  className={`h-1.5 flex-1 rounded-full transition-all ${
-                    i < currentIndex
-                      ? "bg-brand-400"
-                      : i === currentIndex
-                      ? "bg-brand-300"
-                      : "bg-brand-100"
-                  }`}
-                />
-              ))}
-            </div>
           </div>
-          <span className="text-xs text-brand-400">
-            {currentIndex + 1}/{questions.length}
-          </span>
         </div>
 
         {/* Question */}
