@@ -103,7 +103,8 @@ export default function CategoryPage() {
 
   async function handleNext() {
     if (currentIndex + 1 >= questions.length || result?.questions_remaining === 0) {
-      setPhase("results");
+      // Go directly to media if available, otherwise results
+      setPhase(mediaUrl ? "media" : "results");
     } else {
       setCurrentIndex((i) => i + 1);
       setSelected(null);
