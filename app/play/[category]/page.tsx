@@ -95,8 +95,14 @@ export default function CategoryPage() {
     const data: AnswerResult = await res.json();
     setResult(data);
     setSessionResults((prev) => [...prev, { correct: data.correct }]);
-    if (data.media_url) setMediaUrl(data.media_url);
-    if (data.media_type) setMediaType(data.media_type);
+    if (data.media_url) {
+      setMediaUrl(data.media_url);
+      localStorage.setItem("lastMediaUrl", data.media_url);
+    }
+    if (data.media_type) {
+      setMediaType(data.media_type);
+      localStorage.setItem("lastMediaType", data.media_type);
+    }
     setPhase("reviewing");
     setSubmitting(false);
   }
