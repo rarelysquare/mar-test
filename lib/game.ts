@@ -36,6 +36,10 @@ export function todayDate(): string {
   return new Date().toISOString().split("T")[0];
 }
 
+export function getDayNumber(): number {
+  return Math.floor(Date.now() / 86400000);
+}
+
 export type AnswerRecord = {
   question_id: number;
   category: string;

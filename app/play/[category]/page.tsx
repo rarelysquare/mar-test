@@ -32,7 +32,7 @@ interface AnswerResult {
   media_type: "video" | "photo" | null;
 }
 
-type Phase = "loading" | "question" | "reviewing" | "results" | "media";
+type Phase = "loading" | "question" | "reviewing" | "results" | "media" | "exhausted";
 
 export default function CategoryPage() {
   const router = useRouter();
@@ -62,8 +62,11 @@ export default function CategoryPage() {
     const data = await res.json();
 
     if (!data.questions?.length) {
-      // No questions available — go back to category select
-      router.replace("/play");
+      if (data.exhausted) {
+        setPhase("exhausted");
+      } else {
+        router.replace("/play");
+      }
       return;
     }
 
@@ -129,6 +132,27 @@ export default function CategoryPage() {
     return (
       <main className="min-h-screen bg-gradient-to-b from-cream-100 to-brand-50 flex items-center justify-center">
         <p className="text-brand-400">Loading questions…</p>
+      </main>
+    );
+  }
+
+  // ── Exhausted ────────────────────────────────────────────────────────────
+  if (phase === "exhausted") {
+    return (
+      <main className="min-h-screen bg-gradient-to-b from-cream-100 to-brand-50 flex items-center justify-center px-4">
+        <div className="max-w-sm w-full text-center space-y-4">
+          <p className="text-5xl">🌱</p>
+          <h1 className="text-2xl font-bold text-brand-700">You&apos;ve seen them all!</h1>
+          <p className="text-brand-400 text-sm">
+            You&apos;ve answered every question in the game. Check back later — more are on the way!
+          </p>
+          <button
+            onClick={() => router.push("/play")}
+            className="w-full bg-brand-500 hover:bg-brand-600 text-white font-semibold py-4 rounded-2xl text-base transition"
+          >
+            Back to home
+          </button>
+        </div>
       </main>
     );
   }
@@ -254,12 +278,6 @@ export default function CategoryPage() {
 
         {/* Header */}
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.push("/play")}
-            className="text-brand-400 hover:text-brand-600 text-sm"
-          >
-            ←
-          </button>
           <div className="flex-1">
             <p className="text-xs text-brand-400 font-medium uppercase tracking-wide">
               {category === "daily" ? "Today's Question" : CATEGORY_NAMES[category]}

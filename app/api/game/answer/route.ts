@@ -1,69 +1,6 @@
 import { getDb } from "@/lib/db/client";
-import { checkAnswer, pickVideoByTags, todayDate, MAX_DAILY_QUESTIONS } from "@/lib/game";
+import { checkAnswer, todayDate, MAX_DAILY_QUESTIONS, getDayNumber } from "@/lib/game";
 import { NextResponse } from "next/server";
-import type { Pool } from "pg";
-
-type MediaRow = { id: number; filename: string; tags: string };
-
-async function pickMediaForPlayer(
-  db: Pool,
-  playerId: number,
-  questionTagSet: Set<string>
-): Promise<{ id: number; filename: string; type: string } | null> {
-  const { rows: seenRows } = await db.query(
-    "SELECT media_id FROM player_media_history WHERE player_id = $1",
-    [playerId]
-  );
-  const seenIds = seenRows.map((r: { media_id: number }) => r.media_id);
-
-  const notInClause = (startIdx: number) =>
-    seenIds.length > 0
-      ? ` AND id NOT IN (${seenIds.map((_: number, i: number) => `$${startIdx + i}`).join(",")})`
-      : "";
-
-  // 1. Try unseen videos
-  const { rows: unseenVideos } = await db.query(
-    `SELECT id, filename, tags FROM media_items WHERE type = 'video'${notInClause(1)}`,
-    seenIds
-  ) as { rows: MediaRow[] };
-
-  if (unseenVideos.length > 0) {
-    const picked = pickVideoByTags(unseenVideos, questionTagSet)!;
-    return { id: picked.id, filename: picked.filename, type: "video" };
-  }
-
-  // 2. Try unseen photos
-  const { rows: unseenPhotos } = await db.query(
-    `SELECT id, filename, tags FROM media_items WHERE type = 'photo'${notInClause(1)}`,
-    seenIds
-  ) as { rows: MediaRow[] };
-
-  if (unseenPhotos.length > 0) {
-    const picked = unseenPhotos[Math.floor(Math.random() * unseenPhotos.length)];
-    return { id: picked.id, filename: picked.filename, type: "photo" };
-  }
-
-  // 3. All exhausted — reset and start fresh
-  await db.query("DELETE FROM player_media_history WHERE player_id = $1", [playerId]);
-
-  const { rows: allVideos } = await db.query(
-    "SELECT id, filename, tags FROM media_items WHERE type = 'video'"
-  ) as { rows: MediaRow[] };
-  if (allVideos.length > 0) {
-    const picked = pickVideoByTags(allVideos, questionTagSet)!;
-    return { id: picked.id, filename: picked.filename, type: "video" };
-  }
-
-  const { rows: allPhotos } = await db.query(
-    "SELECT id, filename, tags FROM media_items WHERE type = 'photo'"
-  ) as { rows: MediaRow[] };
-  if (allPhotos.length > 0) {
-    const picked = allPhotos[Math.floor(Math.random() * allPhotos.length)];
-    return { id: picked.id, filename: picked.filename, type: "photo" };
-  }
-
-  return null;
-}
 
 export async function POST(req: Request) {
   const { slug, question_id, selected_option } = await req.json();
@@ -143,17 +80,11 @@ export async function POST(req: Request) {
     }
   }
 
-  const questionTagSet = new Set<string>(
-    question.tags.split(",").map((t: string) => t.trim().toLowerCase()).filter(Boolean)
+  // Day-based media selection — same for everyone on a given day
+  const { rows: allMedia } = await db.query(
+    "SELECT id, filename, type FROM media_items ORDER BY CASE WHEN type = 'video' THEN 0 ELSE 1 END, id"
   );
-  const media = await pickMediaForPlayer(db, player.id, questionTagSet);
-
-  if (media) {
-    await db.query(
-      "INSERT INTO player_media_history (player_id, media_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
-      [player.id, media.id]
-    );
-  }
+  const media = allMedia.length > 0 ? allMedia[getDayNumber() % allMedia.length] : null;
 
   const mediaBase = process.env.MEDIA_BASE_URL ?? "";
   const mediaPath = media
