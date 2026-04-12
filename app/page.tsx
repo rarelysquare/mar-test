@@ -75,7 +75,7 @@ export default function LandingPage() {
           />
           <h1 className="text-3xl font-bold text-brand-700">Baby Adelina Trivia</h1>
           <p className="text-brand-600/70 text-base">
-            Daily trivia for the people who love her most.
+            One question a day about babies, development, and Adelina herself — plus a daily photo or video reward.
           </p>
         </div>
 

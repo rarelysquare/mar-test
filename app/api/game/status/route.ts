@@ -1,5 +1,5 @@
 import { getDb } from "@/lib/db/client";
-import { todayDate, MAX_DAILY_QUESTIONS } from "@/lib/game";
+import { todayDate, MAX_DAILY_QUESTIONS, getDayNumber } from "@/lib/game";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
@@ -22,11 +22,25 @@ export async function GET(req: Request) {
     ? JSON.parse(sessionRows[0].answers_json)
     : [];
 
+  const completed = answers.length >= MAX_DAILY_QUESTIONS;
+
+  // Today's media (same for everyone, day-based)
+  const { rows: allMedia } = await db.query(
+    "SELECT filename, type FROM media_items ORDER BY CASE WHEN type = 'video' THEN 0 ELSE 1 END, id"
+  );
+  const media = allMedia.length > 0 ? allMedia[getDayNumber() % allMedia.length] : null;
+  const mediaBase = process.env.MEDIA_BASE_URL ?? "";
+  const mediaUrl = media
+    ? `${mediaBase}/${media.type === "video" ? "videos" : "photos"}/${media.filename}`
+    : null;
+
   return NextResponse.json({
     player,
     questions_answered: answers.length,
     questions_remaining: Math.max(0, MAX_DAILY_QUESTIONS - answers.length),
     score_today: answers.filter((a) => a.correct).length,
-    video_unlocked: answers.length >= MAX_DAILY_QUESTIONS,
+    completed,
+    media_url: mediaUrl,
+    media_type: media?.type ?? null,
   });
 }

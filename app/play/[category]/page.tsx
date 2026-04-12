@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { CATEGORY_SLUGS, CATEGORY_NAMES } from "@/lib/game";
-import { StarIcon, ClapIcon, MuscleIcon, PartyIcon, MoonIcon } from "@/app/components/SoftIcons";
+import { StarIcon, ClapIcon, MuscleIcon } from "@/app/components/SoftIcons";
 import { DevReset } from "@/app/components/DevReset";
 
 const NIGHT_ILLUSTRATIONS = ["sleeping-back", "sleeping-side", "sleeping-tummy"];
@@ -32,7 +32,7 @@ interface AnswerResult {
   media_type: "video" | "photo" | null;
 }
 
-type Phase = "loading" | "question" | "reviewing" | "results" | "media" | "exhausted";
+type Phase = "loading" | "question" | "reviewing" | "completion" | "exhausted";
 
 export default function CategoryPage() {
   const router = useRouter();
@@ -47,11 +47,9 @@ export default function CategoryPage() {
   const [selectedMultiple, setSelectedMultiple] = useState<string[]>([]);
   const [freeFormText, setFreeFormText] = useState("");
   const [result, setResult] = useState<AnswerResult | null>(null);
-  const [sessionResults, setSessionResults] = useState<{ correct: boolean }[]>([]);
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [mediaType, setMediaType] = useState<"video" | "photo" | null>(null);
   const [submitting, setSubmitting] = useState(false);
-
 
   const slug = typeof window !== "undefined" ? localStorage.getItem("playerSlug") : null;
 
@@ -97,23 +95,15 @@ export default function CategoryPage() {
 
     const data: AnswerResult = await res.json();
     setResult(data);
-    setSessionResults((prev) => [...prev, { correct: data.correct }]);
-    if (data.media_url) {
-      setMediaUrl(data.media_url);
-      localStorage.setItem("lastMediaUrl", data.media_url);
-    }
-    if (data.media_type) {
-      setMediaType(data.media_type);
-      localStorage.setItem("lastMediaType", data.media_type);
-    }
+    if (data.media_url) setMediaUrl(data.media_url);
+    if (data.media_type) setMediaType(data.media_type);
     setPhase("reviewing");
     setSubmitting(false);
   }
 
-  async function handleNext() {
+  function handleContinue() {
     if (currentIndex + 1 >= questions.length || result?.questions_remaining === 0) {
-      // Go directly to media if available, otherwise results
-      setPhase(mediaUrl ? "media" : "results");
+      setPhase("completion");
     } else {
       setCurrentIndex((i) => i + 1);
       setSelected(null);
@@ -125,13 +115,12 @@ export default function CategoryPage() {
   }
 
   const q = questions[currentIndex];
-  const correctCount = sessionResults.filter((r) => r.correct).length;
 
   // ── Loading ──────────────────────────────────────────────────────────────
   if (phase === "loading") {
     return (
       <main className="min-h-screen bg-gradient-to-b from-cream-100 to-brand-50 flex items-center justify-center">
-        <p className="text-brand-400">Loading questions…</p>
+        <p className="text-brand-400">Loading…</p>
       </main>
     );
   }
@@ -157,56 +146,62 @@ export default function CategoryPage() {
     );
   }
 
-  // ── Results ──────────────────────────────────────────────────────────────
-  if (phase === "results") {
-    const pct = sessionResults.length > 0 ? correctCount / sessionResults.length : 0;
-    const EmojiIcon = pct === 1 ? StarIcon : pct >= 0.6 ? ClapIcon : MuscleIcon;
-    const message =
-      pct === 1
-        ? "Perfect score!"
-        : pct >= 0.6
-        ? "Great job!"
-        : "Keep it up!";
+  // ── Completion ───────────────────────────────────────────────────────────
+  if (phase === "completion") {
+    const correct = result?.correct ?? false;
+    const EmojiIcon = correct ? StarIcon : ClapIcon;
     const night = isNightTime();
 
     return (
       <main className="min-h-screen bg-gradient-to-b from-cream-100 to-brand-50 flex flex-col">
         <div className="max-w-sm mx-auto px-4 pt-10 pb-8 w-full space-y-6 text-center">
+
           {night ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={`/illustrations/adelina-${getNightIllustration()}.png`}
-              alt="Adelina sleeping"
+              alt="Adelina"
               className="w-40 h-40 mx-auto object-contain"
             />
           ) : (
             <EmojiIcon className="w-16 h-16 mx-auto" />
           )}
-          <div>
-            <h1 className="text-2xl font-bold text-brand-700">{message}</h1>
-          </div>
 
-          {mediaUrl && (
-            <button
-              onClick={() => setPhase("media")}
-              className="w-full bg-blush-400 hover:bg-blush-400/80 text-white font-semibold py-4 rounded-2xl text-base transition shadow-sm"
-            >
-              <PartyIcon className="w-5 h-5 inline-block mr-1 align-middle" />
-              {mediaType === "photo" ? "See today's memory" : "Watch today's video"}
-            </button>
-          )}
+          <h1 className="text-2xl font-bold text-brand-700">
+            {correct ? "You got it!" : "Nice try!"}
+          </h1>
 
-          {result && result.questions_remaining > 0 ? (
-            <button
-              onClick={() => router.push("/play")}
-              className="w-full bg-brand-500 hover:bg-brand-600 text-white font-semibold py-4 rounded-2xl text-base transition shadow-sm"
-            >
-              Play again
-            </button>
+          {mediaUrl ? (
+            <div className="space-y-3 text-left">
+              <p className="text-center font-semibold text-brand-600">
+                🎀 {mediaType === "photo" ? "Today's memory" : "Today's video"}
+              </p>
+              {mediaType === "video" ? (
+                <video
+                  src={mediaUrl}
+                  controls
+                  autoPlay
+                  playsInline
+                  className="w-full rounded-2xl shadow-lg"
+                />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={mediaUrl}
+                  alt="Today's memory"
+                  className="w-full rounded-2xl shadow-lg object-contain"
+                />
+              )}
+              <a
+                href={`/api/download?url=${encodeURIComponent(mediaUrl)}`}
+                download
+                className="flex items-center justify-center gap-2 w-full bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold text-center py-3 rounded-xl transition"
+              >
+                ⬇ {mediaType === "photo" ? "Download photo" : "Download video"}
+              </a>
+            </div>
           ) : (
-            <p className="text-brand-400 text-sm text-center py-2">
-              All done for today! Come back tomorrow. <MoonIcon className="w-4 h-4 inline-block align-middle" />
-            </p>
+            <p className="text-brand-400 text-sm">Come back tomorrow for your next question.</p>
           )}
 
           <button
@@ -215,54 +210,7 @@ export default function CategoryPage() {
           >
             Back to home
           </button>
-          <div className="text-center">
-            <DevReset />
-          </div>
-        </div>
-      </main>
-    );
-  }
 
-  // ── Media reward ─────────────────────────────────────────────────────────
-  if (phase === "media" && mediaUrl) {
-    return (
-      <main className="min-h-screen bg-gradient-to-b from-cream-100 to-brand-50 flex flex-col items-center justify-center px-4">
-        <div className="w-full max-w-sm space-y-4">
-          <div className="text-center space-y-1">
-            <p className="text-4xl">🎀</p>
-            <h1 className="text-2xl font-bold text-brand-700">
-              {mediaType === "photo" ? "Today's memory" : "Today's video"}
-            </h1>
-          </div>
-          {mediaType === "video" ? (
-            <video
-              src={mediaUrl}
-              controls
-              autoPlay
-              playsInline
-              className="w-full rounded-2xl shadow-lg"
-            />
-          ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={mediaUrl}
-              alt="Today's memory"
-              className="w-full rounded-2xl shadow-lg object-contain"
-            />
-          )}
-          <a
-            href={mediaUrl}
-            download
-            className="block w-full bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold text-center py-3 rounded-xl transition"
-          >
-            ⬇ {mediaType === "photo" ? "Download photo" : "Download video"}
-          </a>
-          <button
-            onClick={() => setPhase("results")}
-            className="w-full text-brand-400 hover:text-brand-600 text-sm py-2 transition"
-          >
-            Back to results
-          </button>
           <div className="text-center">
             <DevReset />
           </div>
@@ -278,11 +226,15 @@ export default function CategoryPage() {
 
         {/* Header */}
         <div className="flex items-center gap-3">
-          <div className="flex-1">
-            <p className="text-xs text-brand-400 font-medium uppercase tracking-wide">
-              {category === "daily" ? "Today's Question" : CATEGORY_NAMES[category]}
-            </p>
-          </div>
+          <button
+            onClick={() => router.push("/play")}
+            className="text-brand-400 hover:text-brand-600 text-sm"
+          >
+            ←
+          </button>
+          <p className="text-xs text-brand-400 font-medium uppercase tracking-wide flex-1">
+            {category === "daily" ? "Today's Question" : CATEGORY_NAMES[category]}
+          </p>
         </div>
 
         {/* Question */}
@@ -380,14 +332,11 @@ export default function CategoryPage() {
                 const isSelected = option === selected;
 
                 if (isCorrectOption) {
-                  style =
-                    "w-full text-left bg-brand-100 border-2 border-brand-400 rounded-2xl px-5 py-4 text-sm font-medium text-brand-800 transition";
+                  style = "w-full text-left bg-brand-100 border-2 border-brand-400 rounded-2xl px-5 py-4 text-sm font-medium text-brand-800 transition";
                 } else if (isSelected && !result.correct) {
-                  style =
-                    "w-full text-left bg-blush-100 border-2 border-blush-400/50 rounded-2xl px-5 py-4 text-sm font-medium text-blush-400 transition";
+                  style = "w-full text-left bg-blush-100 border-2 border-blush-400/50 rounded-2xl px-5 py-4 text-sm font-medium text-blush-400 transition";
                 } else {
-                  style =
-                    "w-full text-left bg-cream-50 border-2 border-brand-100 rounded-2xl px-5 py-4 text-sm font-medium text-brand-300 transition";
+                  style = "w-full text-left bg-cream-50 border-2 border-brand-100 rounded-2xl px-5 py-4 text-sm font-medium text-brand-300 transition";
                 }
               }
 
@@ -405,14 +354,12 @@ export default function CategoryPage() {
           </div>
         )}
 
-        {/* Follow-up + Next */}
+        {/* Follow-up + Continue */}
         {phase === "reviewing" && result && (
           <div className="space-y-4">
-            <div
-              className={`rounded-2xl p-4 ${
-                result.correct ? "bg-brand-100 border border-brand-300" : "bg-blush-100 border border-blush-400/40"
-              }`}
-            >
+            <div className={`rounded-2xl p-4 ${
+              result.correct ? "bg-brand-100 border border-brand-300" : "bg-blush-100 border border-blush-400/40"
+            }`}>
               <p className={`text-sm font-semibold mb-1 ${result.correct ? "text-brand-700" : "text-blush-400"}`}>
                 {result.correct ? "✓ Correct!" : "Not quite —"}
               </p>
@@ -429,12 +376,10 @@ export default function CategoryPage() {
             </div>
 
             <button
-              onClick={handleNext}
+              onClick={handleContinue}
               className="w-full bg-brand-500 hover:bg-brand-600 text-white font-semibold py-4 rounded-2xl text-base transition shadow-sm"
             >
-              {currentIndex + 1 >= questions.length || result.questions_remaining === 0
-                ? "See results"
-                : "Next question →"}
+              {mediaUrl ? "See today's reward →" : "Continue →"}
             </button>
           </div>
         )}
