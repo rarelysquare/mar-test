@@ -37,7 +37,7 @@ function QuestionCard({
   onNewTags,
 }: {
   q: Question;
-  onSave: (id: number, updates: Partial<Question> & { tags?: string }) => void;
+  onSave: (id: number, updates: Partial<Question> & { tags?: string; options_json?: string }) => void;
   onDelete: (id: number) => void;
   allTags: string[];
   onNewTags: (tags: string[]) => void;
@@ -47,6 +47,9 @@ function QuestionCard({
   const [draftTags, setDraftTags] = useState<string[]>(
     (q.tags ?? "").split(",").map((t) => t.trim()).filter(Boolean)
   );
+  const [draftOptions, setDraftOptions] = useState<string[]>(
+    JSON.parse(q.options_json || "[]")
+  );
 
   function save() {
     onSave(q.id, {
@@ -55,6 +58,7 @@ function QuestionCard({
       follow_up_context: draft.follow_up_context,
       active: draft.active,
       tags: draftTags.join(", "),
+      options_json: JSON.stringify(draftOptions),
     });
     onNewTags(draftTags);
     setEditing(false);
@@ -130,6 +134,39 @@ function QuestionCard({
               className="w-full mt-1 border rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
             />
           </div>
+          {(q.answer_type === "multiple_choice" || q.answer_type === "select_all") && (
+            <div>
+              <label className="text-xs text-gray-500 font-medium">Answer Options</label>
+              <div className="mt-1 space-y-2">
+                {draftOptions.map((opt, i) => (
+                  <div key={i} className="flex gap-2 items-start">
+                    <span className="text-xs text-gray-400 mt-2.5 w-4 flex-shrink-0">{i + 1}.</span>
+                    <input
+                      value={opt}
+                      onChange={(e) => {
+                        const updated = [...draftOptions];
+                        updated[i] = e.target.value;
+                        setDraftOptions(updated);
+                      }}
+                      className="flex-1 border rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+                    />
+                    <button
+                      onClick={() => setDraftOptions(draftOptions.filter((_, j) => j !== i))}
+                      className="text-red-400 hover:text-red-600 mt-2 text-xs"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                <button
+                  onClick={() => setDraftOptions([...draftOptions, ""])}
+                  className="text-xs text-brand-600 hover:text-brand-700 font-medium mt-1"
+                >
+                  + Add option
+                </button>
+              </div>
+            </div>
+          )}
           <div>
             <label className="text-xs text-gray-500 font-medium">Follow-up Context</label>
             <textarea
