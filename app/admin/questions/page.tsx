@@ -272,10 +272,16 @@ export default function QuestionsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updates),
     });
+    const body = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
       alert(`Save failed (${res.status}): ${body.error ?? "unknown error"}`);
       return;
+    }
+    // Diagnostic: confirm what was actually saved in DB
+    if (body.saved?.options_json !== undefined && updates.options_json !== undefined) {
+      if (body.saved.options_json !== updates.options_json) {
+        alert(`Warning: sent options_json but DB has different value.\nSent: ${updates.options_json}\nDB: ${body.saved.options_json}`);
+      }
     }
     load();
   }

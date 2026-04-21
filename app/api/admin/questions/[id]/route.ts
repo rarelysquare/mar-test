@@ -17,10 +17,15 @@ export async function PUT(
 
   const { id } = await params;
   const body = await req.json();
-  const { category, question, answer, answer_type, options, follow_up_context, active, tags } = body;
+  const { category, question, answer, answer_type, options, options_json, follow_up_context, active, tags } = body;
+
+  const resolvedOptionsJson =
+    options_json !== undefined ? options_json :
+    options !== undefined ? JSON.stringify(options) :
+    null;
 
   const db = await getDb();
-  await db.query(
+  const result = await db.query(
     `UPDATE trivia_questions SET
       category = COALESCE($1, category),
       question = COALESCE($2, question),
@@ -31,13 +36,14 @@ export async function PUT(
       active = COALESCE($7, active),
       tags = COALESCE($8, tags),
       updated_at = to_char(now(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
-     WHERE id = $9`,
+     WHERE id = $9::integer
+     RETURNING id, options_json`,
     [
       category ?? null,
       question ?? null,
       answer ?? null,
       answer_type ?? null,
-      options !== undefined ? JSON.stringify(options) : null,
+      resolvedOptionsJson,
       follow_up_context ?? null,
       active !== undefined ? (active ? 1 : 0) : null,
       tags !== undefined ? tags : null,
@@ -45,7 +51,11 @@ export async function PUT(
     ]
   );
 
-  return NextResponse.json({ ok: true });
+  if (result.rowCount === 0) {
+    return NextResponse.json({ error: `No question found with id ${id}` }, { status: 404 });
+  }
+
+  return NextResponse.json({ ok: true, saved: result.rows[0] });
 }
 
 export async function DELETE(
