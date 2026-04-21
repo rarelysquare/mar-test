@@ -1,15 +1,27 @@
 "use client";
 import { useSession, signOut } from "next-auth/react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function AdminPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const [exhaustedAlert, setExhaustedAlert] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === "unauthenticated") router.push("/admin/login");
   }, [status, router]);
+
+  useEffect(() => {
+    if (status === "authenticated") {
+      fetch("/api/admin/config")
+        .then((r) => r.json())
+        .then((d) => {
+          const alert = d.config?.alert_questions_exhausted;
+          if (alert) setExhaustedAlert(alert);
+        });
+    }
+  }, [status]);
 
   if (status === "loading") return <p className="p-8">Loading…</p>;
 
@@ -30,6 +42,14 @@ export default function AdminPage() {
           Signed in as <strong>{session?.user?.email}</strong>
         </p>
 
+        {exhaustedAlert && (
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 space-y-1">
+            <p className="text-sm font-semibold text-red-700">⚠️ Questions exhausted</p>
+            <p className="text-xs text-red-600 whitespace-pre-wrap">{exhaustedAlert.split(" | ").join("\n")}</p>
+            <p className="text-xs text-red-400">Add more questions in the Question Bank to fix this.</p>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 gap-4">
           <button
             onClick={() => router.push("/admin/media")}
@@ -47,6 +67,15 @@ export default function AdminPage() {
             <h2 className="font-semibold text-lg text-brand-700">Question Bank</h2>
             <p className="text-sm text-gray-500 mt-1">
               View, edit, and add trivia questions for Milestone Trivia and Raising Adelina.
+            </p>
+          </button>
+          <button
+            onClick={() => router.push("/admin/players")}
+            className="bg-white rounded-2xl shadow p-6 text-left hover:shadow-md transition"
+          >
+            <h2 className="font-semibold text-lg text-brand-700">Players</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              View and delete player accounts and game history.
             </p>
           </button>
         </div>
