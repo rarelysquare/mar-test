@@ -98,6 +98,15 @@ export default function AdminPage() {
               View and delete player accounts and game history.
             </p>
           </button>
+          <button
+            onClick={() => router.push("/admin/illustrations")}
+            className="bg-white rounded-2xl shadow p-6 text-left hover:shadow-md transition"
+          >
+            <h2 className="font-semibold text-lg text-brand-700">Illustrations</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Browse all Adelina illustration assets.
+            </p>
+          </button>
         </div>
       </div>
     </main>
