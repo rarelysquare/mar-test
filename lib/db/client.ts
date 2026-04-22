@@ -14,6 +14,8 @@ async function init(): Promise<Pool> {
     "ALTER TABLE trivia_questions ADD COLUMN IF NOT EXISTS tags TEXT NOT NULL DEFAULT ''",
     "ALTER TABLE media_items ADD COLUMN IF NOT EXISTS tags TEXT NOT NULL DEFAULT ''",
     "ALTER TABLE media_items ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE players ADD COLUMN IF NOT EXISTS phone_number TEXT",
+    "ALTER TABLE players ADD COLUMN IF NOT EXISTS sms_opted_in INTEGER NOT NULL DEFAULT 0",
   ];
   for (const sql of migrations) {
     await pool.query(sql);

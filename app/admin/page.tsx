@@ -7,6 +7,8 @@ export default function AdminPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [exhaustedAlert, setExhaustedAlert] = useState<string | null>(null);
+  const [sendingReminders, setSendingReminders] = useState(false);
+  const [reminderResult, setReminderResult] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === "unauthenticated") router.push("/admin/login");
@@ -41,6 +43,24 @@ export default function AdminPage() {
         <p className="text-sm text-gray-600">
           Signed in as <strong>{session?.user?.email}</strong>
         </p>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={async () => {
+              setSendingReminders(true);
+              setReminderResult(null);
+              const res = await fetch("/api/admin/send-reminders", { method: "POST" });
+              const data = await res.json();
+              setReminderResult(data.message ?? `Sent to ${data.sent} player${data.sent !== 1 ? "s" : ""}`);
+              setSendingReminders(false);
+            }}
+            disabled={sendingReminders}
+            className="bg-brand-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-brand-700 disabled:opacity-50"
+          >
+            {sendingReminders ? "Sending…" : "Send daily reminders"}
+          </button>
+          {reminderResult && <p className="text-sm text-gray-500">{reminderResult}</p>}
+        </div>
 
         {exhaustedAlert && (
           <div className="bg-red-50 border border-red-200 rounded-2xl p-4 space-y-1">

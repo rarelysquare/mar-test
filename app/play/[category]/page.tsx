@@ -50,8 +50,16 @@ export default function CategoryPage() {
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [mediaType, setMediaType] = useState<"video" | "photo" | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [smsOptedIn, setSmsOptedIn] = useState(false);
+  const [phoneInput, setPhoneInput] = useState("");
+  const [smsSaving, setSmsSaving] = useState(false);
+  const [smsError, setSmsError] = useState("");
 
   const slug = typeof window !== "undefined" ? localStorage.getItem("playerSlug") : null;
+
+  useEffect(() => {
+    setSmsOptedIn(localStorage.getItem("smsOptedIn") === "1");
+  }, []);
 
   const loadQuestions = useCallback(async () => {
     if (!slug || !category) { router.replace("/"); return; }
@@ -152,6 +160,37 @@ export default function CategoryPage() {
     const EmojiIcon = correct ? StarIcon : ClapIcon;
     const night = isNightTime();
 
+    async function handleSmsOptIn(e: React.FormEvent) {
+      e.preventDefault();
+      if (!slug) return;
+      setSmsSaving(true);
+      setSmsError("");
+      const res = await fetch("/api/game/sms-optin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug, phone: phoneInput }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setSmsError(data.error ?? "Something went wrong");
+      } else {
+        localStorage.setItem("smsOptedIn", "1");
+        setSmsOptedIn(true);
+      }
+      setSmsSaving(false);
+    }
+
+    async function handleSmsOptOut() {
+      if (!slug) return;
+      await fetch("/api/game/sms-optin", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug }),
+      });
+      localStorage.removeItem("smsOptedIn");
+      setSmsOptedIn(false);
+    }
+
     return (
       <main className="min-h-screen bg-gradient-to-b from-cream-100 to-brand-50 flex flex-col">
         <div className="max-w-sm mx-auto px-4 pt-10 pb-8 w-full space-y-6 text-center">
@@ -171,6 +210,39 @@ export default function CategoryPage() {
             {correct ? "You got it!" : "Nice try!"}
           </h1>
 
+          {/* SMS opt-in (shown prominently before opted in) */}
+          {!smsOptedIn && (
+            <div className="bg-brand-500 rounded-3xl p-6 text-left space-y-3">
+              <p className="text-white font-bold text-lg leading-snug">Get a daily reminder to play</p>
+              <p className="text-brand-100 text-sm">We&apos;ll text you each day when a new question is ready.</p>
+              <form onSubmit={handleSmsOptIn} className="space-y-2">
+                <input
+                  type="tel"
+                  value={phoneInput}
+                  onChange={(e) => setPhoneInput(e.target.value)}
+                  placeholder="(555) 555-5555"
+                  className="w-full bg-white/20 text-white placeholder-brand-200 border border-white/30 rounded-xl px-4 py-3 text-base focus:outline-none focus:bg-white/30"
+                />
+                {smsError && <p className="text-red-200 text-xs">{smsError}</p>}
+                <button
+                  type="submit"
+                  disabled={smsSaving || !phoneInput.trim()}
+                  className="w-full bg-white text-brand-600 font-bold py-3 rounded-xl text-base transition disabled:opacity-50 hover:bg-brand-50"
+                >
+                  {smsSaving ? "Signing up…" : "Yes, remind me daily"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { localStorage.setItem("smsOptedIn", "skip"); setSmsOptedIn(true); }}
+                  className="w-full text-brand-200 text-sm py-1"
+                >
+                  No thanks
+                </button>
+              </form>
+            </div>
+          )}
+
+          {/* Media */}
           {mediaUrl ? (
             <div className="space-y-3 text-left">
               <p className="text-center font-semibold text-brand-600">
@@ -195,7 +267,11 @@ export default function CategoryPage() {
               <a
                 href={`/api/download?url=${encodeURIComponent(mediaUrl)}`}
                 download
-                className="flex items-center justify-center gap-2 w-full bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold text-center py-3 rounded-xl transition"
+                className={`flex items-center justify-center gap-2 w-full text-sm font-semibold text-center py-3 rounded-xl transition ${
+                  smsOptedIn
+                    ? "bg-brand-500 hover:bg-brand-600 text-white"
+                    : "bg-cream-50 border border-brand-200 text-brand-600 hover:bg-brand-50"
+                }`}
               >
                 ⬇ {mediaType === "photo" ? "Download photo" : "Download video"}
               </a>
@@ -210,6 +286,16 @@ export default function CategoryPage() {
           >
             Back to home
           </button>
+
+          {/* Unsubscribe (only shown after opted in via phone, not "skip") */}
+          {smsOptedIn && localStorage.getItem("smsOptedIn") === "1" && (
+            <button
+              onClick={handleSmsOptOut}
+              className="text-xs text-brand-300 hover:text-brand-500"
+            >
+              Unsubscribe from daily reminders
+            </button>
+          )}
 
           <div className="text-center">
             <DevReset />
