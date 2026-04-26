@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FlameIcon } from "../components/SoftIcons";
 import { DevReset } from "../components/DevReset";
+import { SaveMediaButton } from "../components/SaveMediaButton";
 
 const DAY_ILLUSTRATIONS = [
   "standing", "crawling-bunny", "holding-donut", "crawling-grass",
@@ -119,13 +120,11 @@ export default function PlayPage() {
                   />
                 )}
 
-                <a
-                  href={`/api/download?url=${encodeURIComponent(media_url)}`}
-                  download
-                  className="flex items-center justify-center gap-2 w-full bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold text-center py-3 rounded-xl transition"
-                >
-                  ⬇ {media_type === "photo" ? "Download photo" : "Download video"}
-                </a>
+                <SaveMediaButton
+                  mediaUrl={media_url}
+                  mediaType={media_type}
+                  className="flex items-center justify-center gap-2 w-full bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white text-sm font-semibold text-center py-3 rounded-xl transition"
+                />
               </>
             ) : (
               <p className="text-center text-brand-400 text-sm py-4">

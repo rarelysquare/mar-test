@@ -4,6 +4,7 @@ import { useRouter, useParams } from "next/navigation";
 import { CATEGORY_SLUGS, CATEGORY_NAMES } from "@/lib/game";
 import { StarIcon, ClapIcon, MuscleIcon } from "@/app/components/SoftIcons";
 import { DevReset } from "@/app/components/DevReset";
+import { SaveMediaButton } from "@/app/components/SaveMediaButton";
 
 const NIGHT_ILLUSTRATIONS = ["sleeping-back", "sleeping-side", "sleeping-tummy"];
 function getNightIllustration() {
@@ -264,17 +265,15 @@ export default function CategoryPage() {
                   className="w-full rounded-2xl shadow-lg object-contain"
                 />
               )}
-              <a
-                href={`/api/download?url=${encodeURIComponent(mediaUrl)}`}
-                download
-                className={`flex items-center justify-center gap-2 w-full text-sm font-semibold text-center py-3 rounded-xl transition ${
+              <SaveMediaButton
+                mediaUrl={mediaUrl}
+                mediaType={mediaType!}
+                className={`flex items-center justify-center gap-2 w-full text-sm font-semibold text-center py-3 rounded-xl transition disabled:opacity-50 ${
                   smsOptedIn
                     ? "bg-brand-500 hover:bg-brand-600 text-white"
                     : "bg-cream-50 border border-brand-200 text-brand-600 hover:bg-brand-50"
                 }`}
-              >
-                ⬇ {mediaType === "photo" ? "Download photo" : "Download video"}
-              </a>
+              />
             </div>
           ) : (
             <p className="text-brand-400 text-sm">Come back tomorrow for your next question.</p>
