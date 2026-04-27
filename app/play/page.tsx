@@ -67,7 +67,7 @@ export default function PlayPage() {
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-cream-100 to-brand-50">
-      <div className="max-w-sm mx-auto px-4 pt-10 pb-8 space-y-6">
+      <div className="max-w-md mx-auto px-4 pt-10 pb-8 space-y-6">
 
         {/* Header */}
         <div className="text-center space-y-6">
@@ -75,7 +75,7 @@ export default function PlayPage() {
           <img
             src={illustrationUrl ?? fallbackIllustration()}
             alt="Adelina"
-            className="w-[50%] max-w-[240px] h-auto mx-auto object-contain"
+            className="w-[85%] max-w-[240px] h-auto mx-auto object-contain"
           />
           <p className="text-xl leading-relaxed text-brand-400">
             {isNight ? "Good evening" : "Welcome back"}, {player.name}
@@ -136,7 +136,7 @@ export default function PlayPage() {
           /* ── Not yet played state ── */
           <button
             onClick={() => router.push("/play/daily")}
-            className="w-full bg-brand-500 hover:bg-brand-600 text-white font-semibold py-5 rounded-2xl text-base leading-normal transition active:scale-95 shadow-sm"
+            className="w-full max-w-[300px] mx-auto block bg-brand-500 hover:bg-brand-600 text-white font-semibold py-5 rounded-2xl text-base leading-normal transition active:scale-95 shadow-sm"
           >
             Play today&apos;s question
           </button>
