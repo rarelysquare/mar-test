@@ -1,8 +1,12 @@
 "use client";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 export function DevReset() {
   const router = useRouter();
+  const { data: session } = useSession();
+
+  if (!session) return null;
 
   async function reset() {
     const slug = localStorage.getItem("playerSlug");
