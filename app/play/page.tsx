@@ -70,14 +70,14 @@ export default function PlayPage() {
       <div className="max-w-sm mx-auto px-4 pt-10 pb-8 space-y-6">
 
         {/* Header */}
-        <div className="text-center space-y-2">
+        <div className="text-center space-y-6">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={illustrationUrl ?? fallbackIllustration()}
             alt="Adelina"
-            className="w-28 h-28 mx-auto object-contain"
+            className="w-[50%] max-w-[240px] h-auto mx-auto object-contain"
           />
-          <p className="text-sm text-brand-400">
+          <p className="text-xl leading-relaxed text-brand-400">
             {isNight ? "Good evening" : "Welcome back"}, {player.name}
           </p>
           {player.current_streak > 1 && (
@@ -136,7 +136,7 @@ export default function PlayPage() {
           /* ── Not yet played state ── */
           <button
             onClick={() => router.push("/play/daily")}
-            className="w-full bg-brand-500 hover:bg-brand-600 text-white font-semibold py-5 rounded-2xl text-lg transition active:scale-95 shadow-sm"
+            className="w-full bg-brand-500 hover:bg-brand-600 text-white font-semibold py-5 rounded-2xl text-base leading-normal transition active:scale-95 shadow-sm"
           >
             Play today&apos;s question
           </button>
