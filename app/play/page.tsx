@@ -1,22 +1,16 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { FlameIcon } from "../components/SoftIcons";
 import { DevReset } from "../components/DevReset";
 import { SaveMediaButton } from "../components/SaveMediaButton";
+import { DebugPanel } from "../components/DebugPanel";
 
 const FALLBACK_DAY = ["standing","crawling-bunny","holding-donut","crawling-grass","sitting-crawl","playing-sand","sitting-happy","pointing","laptop","happy-back","playing-mat","tummy-bunny"];
 const FALLBACK_NIGHT = ["sleeping-back","sleeping-side","sleeping-tummy"];
 
-function pickIllustration(urls: string[]) {
-  if (!urls.length) return null;
-  const day = Math.floor(Date.now() / 86400000);
-  return urls[day % urls.length];
-}
-
-function fallbackIllustration() {
-  const isNight = new Date().getHours() >= 19;
-  const pool = isNight ? FALLBACK_NIGHT : FALLBACK_DAY;
+function fallbackIllustration(night: boolean) {
+  const pool = night ? FALLBACK_NIGHT : FALLBACK_DAY;
   const day = Math.floor(Date.now() / 86400000);
   return `/illustrations/adelina-${pool[day % pool.length]}.png`;
 }
@@ -39,7 +33,6 @@ function ShareButton() {
       alert("Link copied!");
     }
   }
-
   return (
     <button
       onClick={handleShare}
@@ -54,26 +47,44 @@ export default function PlayPage() {
   const router = useRouter();
   const [status, setStatus] = useState<Status | null>(null);
   const [loading, setLoading] = useState(true);
-  const [illustrationUrl, setIllustrationUrl] = useState<string | null>(null);
+  const [allIllustrations, setAllIllustrations] = useState<string[]>([]);
+  const [illIndex, setIllIndex] = useState(0);
+  const [isNight, setIsNight] = useState(new Date().getHours() >= 19);
+  const [slug, setSlug] = useState<string | null>(null);
+
+  const loadStatus = useCallback(async (playerSlug: string) => {
+    const tz = encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone);
+    const res = await fetch(`/api/game/status?slug=${playerSlug}&tz=${tz}`);
+    const data = await res.json();
+    if (data.error) { router.replace("/"); return; }
+    setStatus(data);
+  }, [router]);
 
   useEffect(() => {
-    const slug = localStorage.getItem("playerSlug");
-    if (!slug) { router.replace("/"); return; }
+    const s = localStorage.getItem("playerSlug");
+    if (!s) { router.replace("/"); return; }
+    setSlug(s);
 
-    const isNight = new Date().getHours() >= 19;
+    const night = new Date().getHours() >= 19;
+    setIsNight(night);
 
-    const tz = encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone);
     Promise.all([
-      fetch(`/api/game/status?slug=${slug}&tz=${tz}`).then((r) => r.json()),
+      fetch(`/api/game/status?slug=${s}&tz=${encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone)}`).then((r) => r.json()),
       fetch("/api/game/illustrations").then((r) => r.json()),
     ]).then(([statusData, illData]) => {
       if (statusData.error) { router.replace("/"); return; }
       setStatus(statusData);
+
       const allUrls: string[] = (illData.illustrations ?? []).map((i: { url: string }) => i.url);
+      setAllIllustrations(allUrls);
+
       const nightUrls = allUrls.filter((u) => FALLBACK_NIGHT.some((n) => u.includes(n)));
       const dayUrls = allUrls.filter((u) => !FALLBACK_NIGHT.some((n) => u.includes(n)));
-      const pool = isNight ? nightUrls : dayUrls;
-      setIllustrationUrl(pickIllustration(pool) ?? fallbackIllustration());
+      const pool = night ? nightUrls : dayUrls;
+      const day = Math.floor(Date.now() / 86400000);
+      const picked = pool.length ? pool[day % pool.length] : fallbackIllustration(night);
+      const idx = allUrls.indexOf(picked);
+      setIllIndex(idx >= 0 ? idx : 0);
     }).finally(() => setLoading(false));
   }, [router]);
 
@@ -86,7 +97,7 @@ export default function PlayPage() {
   if (!status) return null;
 
   const { player, days_played, completed, media_url, media_type } = status;
-  const isNight = new Date().getHours() >= 19;
+  const illustrationUrl = allIllustrations[illIndex] ?? fallbackIllustration(isNight);
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-cream-100 to-brand-50">
@@ -96,7 +107,7 @@ export default function PlayPage() {
         <div className="text-center space-y-6">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={illustrationUrl ?? fallbackIllustration()}
+            src={illustrationUrl}
             alt="Adelina"
             className="w-[85%] max-w-[240px] h-auto mx-auto object-contain"
           />
@@ -117,7 +128,7 @@ export default function PlayPage() {
         ) : (
           (player.total_points > 0 || player.current_streak > 0) && (
             <div className="rounded-2xl px-4 py-3 text-sm text-center font-medium text-brand-400">
-              Today's question is waiting for you
+              Today&apos;s question is waiting for you
             </div>
           )
         )}
@@ -128,21 +139,11 @@ export default function PlayPage() {
             {media_url ? (
               <>
                 {media_type === "video" ? (
-                  <video
-                    src={media_url}
-                    controls
-                    playsInline
-                    className="w-full rounded-2xl shadow-lg"
-                  />
+                  <video src={media_url} controls playsInline className="w-full rounded-2xl shadow-lg" />
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={media_url}
-                    alt="Today's memory"
-                    className="w-full rounded-2xl shadow-lg object-contain"
-                  />
+                  <img src={media_url} alt="Today's memory" className="w-full rounded-2xl shadow-lg object-contain" />
                 )}
-
                 <SaveMediaButton
                   mediaUrl={media_url}
                   mediaType={media_type ?? "photo"}
@@ -173,6 +174,16 @@ export default function PlayPage() {
           <DevReset />
         </div>
       </div>
+
+      <DebugPanel
+        isNight={isNight}
+        onNightChange={setIsNight}
+        illustrations={allIllustrations}
+        illustrationIndex={illIndex}
+        onIllustrationChange={setIllIndex}
+        playerSlug={slug}
+        onSessionReset={() => slug && loadStatus(slug)}
+      />
     </main>
   );
 }

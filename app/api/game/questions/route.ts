@@ -7,6 +7,7 @@ export async function GET(req: Request) {
   const slug = searchParams.get("slug");
   const categorySlug = searchParams.get("category");
   const tz = searchParams.get("tz") ?? undefined;
+  const testQuestionId = searchParams.get("testQuestionId");
 
   if (!slug || !categorySlug) {
     return NextResponse.json({ error: "slug and category required" }, { status: 400 });
@@ -57,6 +58,18 @@ export async function GET(req: Request) {
       : "SELECT id, question, answer_type, options_json, answer, follow_up_context FROM trivia_questions WHERE active = 1 AND category = $1 ORDER BY id",
     category === "daily" ? [] : [category]
   );
+
+  // Test override: return a specific question by ID (admin/debug use only)
+  if (testQuestionId) {
+    const { rows: testRows } = await db.query(
+      "SELECT id, question, answer_type, options_json, answer, follow_up_context FROM trivia_questions WHERE id = $1",
+      [testQuestionId]
+    );
+    if (testRows.length) {
+      const q = testRows[0];
+      return NextResponse.json({ questions: [{ ...q, options: JSON.parse(q.options_json), options_json: undefined }], remaining: 1 });
+    }
+  }
 
   if (allQuestions.length === 0) {
     return NextResponse.json({ questions: [], remaining: 0 });

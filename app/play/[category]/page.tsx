@@ -80,7 +80,9 @@ export default function CategoryPage() {
     if (!slug || !category) { router.replace("/"); return; }
 
     const tz = encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone);
-    const res = await fetch(`/api/game/questions?slug=${slug}&category=${categorySlug}&tz=${tz}`);
+    const testQId = sessionStorage.getItem("testQuestionId");
+    const testParam = testQId ? `&testQuestionId=${testQId}` : "";
+    const res = await fetch(`/api/game/questions?slug=${slug}&category=${categorySlug}&tz=${tz}${testParam}`);
     const data = await res.json();
 
     if (!data.questions?.length) {
