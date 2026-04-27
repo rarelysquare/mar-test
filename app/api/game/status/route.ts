@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const slug = searchParams.get("slug");
+  const tz = searchParams.get("tz") ?? undefined;
   if (!slug) return NextResponse.json({ error: "slug required" }, { status: 400 });
 
   const db = await getDb();
@@ -18,7 +19,7 @@ export async function GET(req: Request) {
   );
   const days_played = parseInt(daysRows[0].count, 10);
 
-  const today = todayDate();
+  const today = todayDate(tz);
   const { rows: sessionRows } = await db.query(
     "SELECT answers_json, score FROM player_sessions WHERE player_id = $1 AND game_date = $2",
     [player.id, today]

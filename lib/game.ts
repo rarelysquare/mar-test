@@ -32,8 +32,44 @@ export function nameToSlug(name: string): string {
     .replace(/[^a-z0-9-]/g, "");
 }
 
-export function todayDate(): string {
-  return new Date().toISOString().split("T")[0];
+export function todayDate(tz?: string): string {
+  const timezone = tz || "UTC";
+  const now = new Date();
+  try {
+    // Get current hour in the target timezone
+    const hourStr = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      hour: "numeric",
+      hour12: false,
+    }).format(now);
+    const hour = parseInt(hourStr, 10);
+
+    // Before 6am local time → still "yesterday's" game day
+    const effective = hour < 6 ? new Date(now.getTime() - 86400000) : now;
+
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(effective);
+  } catch {
+    // Unrecognised timezone — fall back to UTC date
+    return now.toISOString().split("T")[0];
+  }
+}
+
+export function yesterdayDate(tz?: string): string {
+  const timezone = tz || "UTC";
+  const oneDayAgo = new Date(Date.now() - 86400000);
+  try {
+    const hourStr = new Intl.DateTimeFormat("en-US", { timeZone: timezone, hour: "numeric", hour12: false }).format(oneDayAgo);
+    const hour = parseInt(hourStr, 10);
+    const effective = hour < 6 ? new Date(oneDayAgo.getTime() - 86400000) : oneDayAgo;
+    return new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(effective);
+  } catch {
+    return oneDayAgo.toISOString().split("T")[0];
+  }
 }
 
 export function getDayNumber(): number {

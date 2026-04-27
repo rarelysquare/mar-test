@@ -1,9 +1,9 @@
 import { getDb } from "@/lib/db/client";
-import { checkAnswer, todayDate, MAX_DAILY_QUESTIONS, getDayNumber } from "@/lib/game";
+import { checkAnswer, todayDate, yesterdayDate, MAX_DAILY_QUESTIONS, getDayNumber } from "@/lib/game";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
-  const { slug, question_id, selected_option } = await req.json();
+  const { slug, question_id, selected_option, tz } = await req.json();
   if (!slug || question_id == null || !selected_option) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
   }
@@ -23,7 +23,7 @@ export async function POST(req: Request) {
   const question = questionRows[0];
 
   const isCorrect = checkAnswer(question.answer_type, question.answer, selected_option);
-  const today = todayDate();
+  const today = todayDate(tz);
 
   const { rows: sessionRows } = await db.query(
     "SELECT * FROM player_sessions WHERE player_id = $1 AND game_date = $2",
@@ -64,7 +64,7 @@ export async function POST(req: Request) {
     await db.query("UPDATE players SET total_points = total_points + 10 WHERE id = $1", [player.id]);
   }
 
-  const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+  const yesterday = yesterdayDate(tz);
   if (answers.length === 1) {
     if (player.last_played_date === yesterday) {
       const newStreak = player.current_streak + 1;

@@ -62,8 +62,9 @@ export default function PlayPage() {
 
     const isNight = new Date().getHours() >= 19;
 
+    const tz = encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone);
     Promise.all([
-      fetch(`/api/game/status?slug=${slug}`).then((r) => r.json()),
+      fetch(`/api/game/status?slug=${slug}&tz=${tz}`).then((r) => r.json()),
       fetch("/api/game/illustrations").then((r) => r.json()),
     ]).then(([statusData, illData]) => {
       if (statusData.error) { router.replace("/"); return; }

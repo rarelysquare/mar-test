@@ -79,7 +79,8 @@ export default function CategoryPage() {
   const loadQuestions = useCallback(async () => {
     if (!slug || !category) { router.replace("/"); return; }
 
-    const res = await fetch(`/api/game/questions?slug=${slug}&category=${categorySlug}`);
+    const tz = encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone);
+    const res = await fetch(`/api/game/questions?slug=${slug}&category=${categorySlug}&tz=${tz}`);
     const data = await res.json();
 
     if (!data.questions?.length) {
@@ -113,6 +114,7 @@ export default function CategoryPage() {
         slug,
         question_id: questions[currentIndex].id,
         selected_option: option,
+        tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
       }),
     });
 

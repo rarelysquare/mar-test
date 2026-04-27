@@ -6,6 +6,7 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const slug = searchParams.get("slug");
   const categorySlug = searchParams.get("category");
+  const tz = searchParams.get("tz") ?? undefined;
 
   if (!slug || !categorySlug) {
     return NextResponse.json({ error: "slug and category required" }, { status: 400 });
@@ -24,7 +25,7 @@ export async function GET(req: Request) {
   if (!playerRows.length) return NextResponse.json({ error: "Player not found" }, { status: 404 });
   const player = playerRows[0];
 
-  const today = todayDate();
+  const today = todayDate(tz);
 
   // Check if player already answered today
   const { rows: sessionRows } = await db.query(
